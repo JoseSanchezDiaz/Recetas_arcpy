@@ -6,22 +6,35 @@ import arcpy
 mxd= arcpy.mapping.MapDocument("CURRENT")
 df = arcpy.mapping.ListDataFrames (mxd,"Layers")[0]
 layer = arcpy.mapping.ListLayers(mxd, "fishnet", df)[0]
+
 #define el destino de la exportación
 dst_folder = "C:\\tirar\\tiles\\"
 #define la resolucion_de_salida
 jpg_res = 100 
 
 #Define el valor mínimo y máximo del campo FID en la capa layer que exportaremos a jpg
-for X in range (1, 442):
+for X in range (1, 19):
         expresion ="FID = " + str(X) 
         print expresion
-        arcpy.SelectLayerByAttribute_management (capa,"NEW_SELECTION", expresion)
+        arcpy.SelectLayerByAttribute_management (layer,"NEW_SELECTION", expresion)
         df.zoomToSelectedFeatures()
-        df.scale = 31000
+        arcpy.RefreshActiveView()
+        extent = df.extent
+        escala = df.scale
+        xmin = extent.XMin
+        xmax = extent.XMax
+        ancho_pantalla_pulgadas = (extent.XMax - extent.XMin)/escala *100 * 39.3701  
+        alto_pantalla_pulgadas = (extent.YMax - extent.YMin)/escala *100 * 39.3701  
+        ancho_pixels = round(ancho_pantalla_pulgadas * jpg_res)
+        alto_pixels = round(alto_pantalla_pulgadas  * jpg_res)
+        print ancho_pixels
+            
         arcpy.RefreshActiveView()
         out_file = dst_folder + "tile_" + str(X)
         arcpy.mapping.ExportToJPEG(mxd, out_file, df,
-                df_export_width=934,
-                df_export_height=803,
+                df_export_width=872,
+                df_export_height=838,
                 world_file=True)
+
+
 
