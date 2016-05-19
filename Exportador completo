@@ -1,0 +1,88 @@
+import arcpy, os, exceptions, collections  
+print "Starting process " + str(time.ctime())  
+mxd = arcpy.mapping.MapDocument("CURRENT")  
+df = arcpy.mapping.ListDataFrames(mxd)[0]  
+mapLayers = arcpy.mapping.ListLayers(mxd)  
+out_loc = "\\\\ntdmzgis\\Data\\NameOfFolderHere\\" #TODO: Set the output locations, add as a parameter  
+res = 300 #TODO: this is the output resolution 300  
+dfWidth = 8 #TODO: this is the width of the dataframe in inches  
+inch_to_meters = 0.0254 #This is the convertion for inches to meters must match the defined coordinate system of the data frame  
+print_pages = [] #TODO: Add pages; example range ['6-8',21,'9-18',36], leave blank to get all pages  
+if mapLayers.count <> 0:  
+    for lyr in arcpy.mapping.ListLayers(mxd, "L*", df): #This selects the layer names,make sure they are named L1, L2, etc. Can manually select layer if needed   
+        print "Checking if " + lyr.name + " is feature Layer"  
+        if lyr.isFeatureLayer == True:   
+            print "We found a feature layer"  
+            if os.path.exists(out_loc + lyr.name):  
+                #print "Folder existed" #Uncomment this line and Comment out next line if you want to overwrite the folder  
+                raise Exception ("This " + out_loc + lyr.name + " folder existed! \n Are you sure this is the right location? \n  Yes, Please move, rename, or delete to continue...")  
+            else:  
+                os.makedirs(out_loc + lyr.name)  
+                print "A new directory was made at " + out_loc + lyr.name  
+            rows = arcpy.SearchCursor(lyr)   
+            print "Starting process to make clipped JPEGs for " + lyr.name + "  " + str(time.ctime())  
+            d = len(print_pages)  
+            if d <= 0:  
+                rows1 = arcpy.SearchCursor(lyr)  
+                for rw in rows1:  
+                    print_pages.append(rw.getValue("PageNumber"))  
+            if [el for el in print_pages if isinstance(el, collections.Iterable) and ('-' in el)]:  
+                print "We have a range"  
+                for p in range(d):  
+                    print str(p) + " of " + str(d)  
+                    if  print_pages[p].find("-"):  
+                        l = print_pages[p]  
+                        m = l.partition("-")[0]  
+                        n = l.partition("-")[2]  
+                        del print_pages[p]   
+                        for o in range(int(m),int(n)+1):  
+                            print_pages.append(o)  
+                        del l, m, n, o   
+            else:  
+                print "No range selected"  
+            print print_pages  
+            for row in rows:  
+                pg = row.getValue("PageNumber")  
+                if pg in print_pages:    
+                    df.extent = row.Shape.extent  
+                    print "Feature Extent: " + str(row.Shape.extent)  
+                    print "Selected scale: " + str(df.scale)   
+                    xmin, ymin, xmax, ymax = row.shape.extent.XMin, row.shape.extent.YMin, row.shape.extent.XMax, row.shape.extent.YMax  
+                    xWidth = xmax - xmin  
+                    yHeight = ymax - ymin  
+                    featSq = math.sqrt(math.pow(xWidth,2) + math.pow(yHeight,2))  
+                    dfSq = math.sqrt(math.pow(df.elementWidth * inch_to_meters,2) + math.pow(df.elementHeight * inch_to_meters,2))  
+                    #Calculates the needed scale to fit image into dataframe size  
+                    if mxd.activeView != 'PAGE_LAYOUT' :  
+                        df.scale =  (featSq / dfSq) * 0.651951975  
+                    else:  
+                        df.scale =  (featSq / dfSq)  
+                    print "Using scale for " + mxd.activeView  
+                    print "Adj. scale: " + str(df.scale)   
+                    #Set the size of the dataframe to match the feature  
+                    df.elementWidth = dfWidth  
+                    df.elementHeight = dfWidth * (yHeight/xWidth)  
+                    df.elementPositionX, df.elementPositionY = 0, 0  
+                    print "DF Width: " +str(df.elementWidth) + " x Height: " + str(df.elementHeight)                      
+                    #Set the pixel size based on the resolution  
+                    df = arcpy.mapping.ListDataFrames(mxd)[0]  
+                    picWidth = long(df.elementWidth * res)  
+                    picHeight = long(df.elementHeight * res)  
+                    print "Image Width: " +str(picWidth) + " x Height: " + str(picHeight)                      
+                    print "Working on row..." + str(row.getValue("PageNumber")) + " at " + str(time.ctime())  
+                    arcpy.RefreshActiveView()  
+                    arcpy.mapping.ExportToJPEG(mxd, out_loc + lyr.name + "\\" + str(row.getValue("PageNumber")) + ".jpg", df, df_export_width= picWidth, df_export_height=picHeight, resolution=res, world_file=True)  
+                    print "Finished row..." + str(row.getValue("PageNumber")) + " at " + str(time.ctime())  
+            print lyr.name + " JPEGs have been made at " + str(time.ctime())  
+        else:  
+            print lyr.name + " was not a Feature Class"  
+    try:  
+        lyr  
+    except:  
+        del mxd, df, mapLayers, out_loc, res, dfWidth, inch_to_meters  
+        raise Exception ("Check the layer Name in line 12 is actually in the map.")  
+else:  
+    raise Exception ("No layers were in map.")  
+print "Creating web cache completed " + str(time.ctime())  
+#clean up our varibles  
+del mxd, df, mapLayers, out_loc, res, dfWidth, inch_to_meters, lyr, rows, row, print_pages, xmin, ymin, xmax, ymax, xWidth, yHeight, featSq, dfSq, picWidth, picHeight, p,rows1, rw   
