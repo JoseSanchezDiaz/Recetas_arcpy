@@ -1,0 +1,23 @@
+import arcpy
+#indicar dónde están los raster de origen
+DirectorioOrigen = r'c:\raster_origen'
+
+#definir el Workspace
+arcpy.env.workspace = DirectorioOrigen
+
+#indicar el directorio en el que se localizarán los rasters cortados
+DirectorioDestino = r'c:\raster_destino'
+
+#obtener array con listado de rasters
+ListaRasters = arcpy.ListRasters("*", "TIF")
+
+#indicar polígono que se usará para cortar los rasters
+PoligonoCorte = r'c:\corte.shp'
+
+
+for raster in ListaRasters:
+    #indica el nombre del raserter de salida
+    RasterDestino = DirectorioDestino  + "\\"+ raster[:-4] + ".TIF"
+    print RasterDestino
+    #clipea rasters
+    arcpy.Clip_management(raster, "", RasterDestino, PoligonoCorte, "0", "ClippingGeometry")
